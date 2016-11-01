@@ -49,7 +49,10 @@ func DeployCmd() *cobra.Command {
 			if dev {
 				opts.Version = deploy.DevVersionTag
 			}
-			assets.WriteLocalAssets(manifest, opts, hostPath)
+			err := assets.WriteLocalAssets(manifest, opts, hostPath)
+			if err != nil {
+				return err
+			}
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
@@ -57,11 +60,14 @@ func DeployCmd() *cobra.Command {
 	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Don't use a specific version of pachyderm/pachd.")
 
 	deployGoogle := &cobra.Command{
-		Use:   "google <GCS bucket> <GCE persistent disk> <Disk size (in GB)>",
+		Use:   "google <GCS bucket> <GCE persistent disks> <Disk size (in GB)>",
 		Short: "Deploy a Pachyderm cluster running on GCP.",
-		Long:  "Deploy a Pachyderm cluster running on GCP.",
+		Long:  "Deploy a Pachyderm cluster running on GCP. Arguments are:\n" +
+			"  <GCS bucket>: A GCS bucket where Pachyderm will store PFS data.\n" +
+			"  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per rethink replica (see --rethink-replicas).\n" +
+			"  <Disk size>: Size of GCE persistent disks (assumed to all be the same).\n",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 3, Max: 3}, func(args []string) error {
-			volumeName := args[1]
+			volumeNames := strings.Split(args[1], ",")
 			volumeSize, err := strconv.Atoi(args[2])
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[2])
